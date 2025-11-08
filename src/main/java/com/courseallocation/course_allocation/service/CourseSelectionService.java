@@ -49,6 +49,12 @@ public class CourseSelectionService {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new RuntimeException("Course not found with id: " + courseId));
 
+        if (course.getSemester() == null) {
+            throw new RuntimeException("Course does not have an associated semester");
+        }
+
+        Long semesterId = course.getSemester().getId();
+
         if (!course.getDepartment().equals(student.getDepartment())) {
             throw new RuntimeException("Course is not available for your department");
         }
@@ -65,19 +71,20 @@ public class CourseSelectionService {
             throw new RuntimeException("Course is full. Cannot enroll more students");
         }
 
-        List<Enrollment> currentEnrollments = enrollmentRepository.findByStudentId(studentId);
+        // Filter enrollments by semester to check limits per semester
+        List<Enrollment> currentEnrollments = enrollmentRepository.findByStudentIdAndSemesterId(studentId, semesterId);
         int totalCredits = currentEnrollments.stream()
                 .mapToInt(e -> e.getCourse().getCredits())
                 .sum();
 
         if (totalCredits + course.getCredits() > MAX_CREDITS_PER_SEMESTER) {
             throw new RuntimeException("Credit limit exceeded. Maximum " + MAX_CREDITS_PER_SEMESTER + 
-                    " credits allowed per semester. You currently have " + totalCredits + " credits");
+                    " credits allowed per semester. You currently have " + totalCredits + " credits in this semester");
         }
 
         if (currentEnrollments.size() >= MAX_COURSES_PER_SEMESTER) {
             throw new RuntimeException("Course limit exceeded. Maximum " + MAX_COURSES_PER_SEMESTER + 
-                    " courses allowed per semester");
+                    " courses allowed per semester. You currently have " + currentEnrollments.size() + " courses");
         }
 
         Enrollment enrollment = new Enrollment();
@@ -102,19 +109,22 @@ public class CourseSelectionService {
         }
 
         Course course = enrollment.getCourse();
-        if (course.getCurrentEnrollment() > 0) {
-            course.setCurrentEnrollment(course.getCurrentEnrollment() - 1);
-            courseRepository.save(course);
-        }
-
+        
+        // Delete the enrollment first
         enrollmentRepository.deleteById(enrollmentId);
+        
+        // Update the course enrollment count - ensure it doesn't go below 0
+        int newEnrollmentCount = Math.max(0, course.getCurrentEnrollment() - 1);
+        course.setCurrentEnrollment(newEnrollmentCount);
+        courseRepository.save(course);
     }
 
     public StudentCourseSummary getStudentCourseSummary(Long studentId, Long semesterId) {
         Student student = studentRepository.findById(studentId)
                 .orElseThrow(() -> new RuntimeException("Student not found with id: " + studentId));
 
-        List<Enrollment> enrollments = enrollmentRepository.findByStudentId(studentId);
+        // Filter enrollments by semester
+        List<Enrollment> enrollments = enrollmentRepository.findByStudentIdAndSemesterId(studentId, semesterId);
         
         int totalCredits = enrollments.stream()
                 .mapToInt(e -> e.getCourse().getCredits())

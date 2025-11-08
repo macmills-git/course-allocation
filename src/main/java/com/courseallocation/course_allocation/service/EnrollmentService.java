@@ -95,12 +95,14 @@ public class EnrollmentService {
                 .orElseThrow(() -> new RuntimeException("Enrollment not found with id: " + id));
 
         Course course = enrollment.getCourse();
-        if (course.getCurrentEnrollment() > 0) {
-            course.setCurrentEnrollment(course.getCurrentEnrollment() - 1);
-            courseRepository.save(course);
-        }
-
+        
+        // Delete the enrollment first
         enrollmentRepository.deleteById(id);
+        
+        // Update the course enrollment count - ensure it doesn't go below 0
+        int newEnrollmentCount = Math.max(0, course.getCurrentEnrollment() - 1);
+        course.setCurrentEnrollment(newEnrollmentCount);
+        courseRepository.save(course);
     }
 
     private EnrollmentResponse mapToResponse(Enrollment enrollment) {

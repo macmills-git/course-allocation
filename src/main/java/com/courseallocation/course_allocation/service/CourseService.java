@@ -102,6 +102,12 @@ public class CourseService {
         Semester semester = semesterRepository.findById(request.getSemesterId())
                 .orElseThrow(() -> new RuntimeException("Semester not found with id: " + request.getSemesterId()));
 
+        // Validate that new capacity is not less than current enrollment
+        if (request.getMaxCapacity() < course.getCurrentEnrollment()) {
+            throw new RuntimeException("Cannot set max capacity (" + request.getMaxCapacity() + 
+                    ") less than current enrollment (" + course.getCurrentEnrollment() + ")");
+        }
+
         course.setCourseCode(request.getCourseCode());
         course.setCourseName(request.getCourseName());
         course.setDepartment(request.getDepartment());

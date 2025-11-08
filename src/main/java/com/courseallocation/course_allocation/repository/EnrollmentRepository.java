@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.courseallocation.course_allocation.model.Course;
@@ -20,5 +22,8 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     boolean existsByStudentAndCourse(Student student, Course course);
     long countByCourse(Course course);
     long countByCourseId(Long courseId);
+    
+    @Query("SELECT e FROM Enrollment e WHERE e.student.id = :studentId AND e.course.semester.id = :semesterId")
+    List<Enrollment> findByStudentIdAndSemesterId(@Param("studentId") Long studentId, @Param("semesterId") Long semesterId);
 }
 
